@@ -7,6 +7,7 @@ import CreateTxForm from "./components/CreateTxForm";
 import TransactionSummary from "./components/TransactionSummary";
 
 import { Address, DecoratedUtxo } from "src/types";
+import { createTransaction, signTransaction } from "src/utils/bitcoinjs-lib";
 
 interface Props {
   utxos: DecoratedUtxo[];
@@ -24,7 +25,10 @@ export default function Send({ utxos, changeAddresses, mnemonic }: Props) {
     amountToSend: number
   ) => {
     try {
-      throw new Error("Function not implemented yet");
+      const psbt = await createTransaction(utxos, recipientAddress, amountToSend, changeAddresses[0]);
+      setTransaction(psbt);
+      setTransaction(await signTransaction(psbt, mnemonic));
+      setStep(1);
     } catch (e) {
       setError((e as Error).message);
     }

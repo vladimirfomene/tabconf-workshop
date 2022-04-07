@@ -1,19 +1,25 @@
+import axios from 'axios';
 import {
   Address,
   BlockstreamAPITransactionResponse,
   BlockstreamAPIUtxoResponse,
 } from "src/types";
+import { DefaultDeserializer } from 'v8';
 
+const BASE_URL = 'https://blockstream.info/testnet/api';
 export const getTransactionsFromAddress = async (
   address: Address
 ): Promise<BlockstreamAPITransactionResponse[]> => {
-  throw new Error("Function not implemented yet");
+  const { data } = await axios.get(`${BASE_URL}/address/${address.address}/txs`);
+  console.log(data)
+  return data;
 };
 
 export const getUtxosFromAddress = async (
   address: Address
 ): Promise<BlockstreamAPIUtxoResponse[]> => {
-  throw new Error("Function not implemented yet");
+  const { data } = await axios.get(`${BASE_URL}/address/${address.address}/utxo`);
+  return data;
 };
 
 export const getFeeRates = async () => {
@@ -21,5 +27,6 @@ export const getFeeRates = async () => {
 };
 
 export const broadcastTx = async (txHex: string) => {
-  throw new Error("Function not implemented yet");
+  const { data } = await axios.post(`${BASE_URL}/tx`, txHex);
+  return data;
 };

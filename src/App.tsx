@@ -12,7 +12,21 @@ import Transactions from "src/pages/Transactions";
 import Utxos from "src/pages/UTXOs";
 import Settings from "src/pages/Settings";
 
-import { Address, DecoratedTx, DecoratedUtxo } from "src/types";
+import { Address, BlockstreamAPITransactionResponse, DecoratedTx, DecoratedUtxo } from "src/types";
+import { 
+getNewMnemonic, 
+getMasterPrivateKey, 
+getAddressFromChildPubkey, 
+getXpubFromPrivateKey, 
+deriveChildPublicKey } 
+from "src/utils/bitcoinjs-lib";
+import {
+  serializeTxs,
+} from "src/utils/index";
+import {
+  getTransactionsFromAddress,
+  getUtxosFromAddress
+} from "src/utils/blockstream-api";
 
 export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -28,18 +42,60 @@ export default function App() {
   useEffect(() => {
     const getSeed = async () => {
       try {
-        throw new Error("Function not implemented yet");
+        let newMnemonic = "";
+        if (process.env.REACT_APP_MNEMONIC) {
+          newMnemonic = process.env.REACT_APP_MNEMONIC;
+        } else {
+          newMnemonic = getNewMnemonic();
+        }
+        setMnemonic(newMnemonic);
+        const privateKey = await getMasterPrivateKey(newMnemonic);
+        setMasterFingerprint(privateKey.fingerprint);
+        const derivationPath = "m/84'/0'/0'"; // P2WPKH
+        const currentXpub = getXpubFromPrivateKey(privateKey, derivationPath);
+        setXpub(currentXpub);
+
+
+        
       } catch (e) {
         console.log(e);
       }
     };
     getSeed();
-  }, [mnemonic]);
+  }, []);
 
   // Addresses
   useEffect(() => {
     try {
-      throw new Error("Function not implemented yet");
+      
+      const addresses: Address[] = [];
+      for(let i = 0; i < 10; i++){
+        const derivationPath = `0/${i}`;
+        const child = deriveChildPublicKey(xpub, derivationPath);
+        const address = getAddressFromChildPubkey(child);
+        addresses.push({
+          ...address,
+          derivationPath,
+          masterFingerprint
+        });
+      }
+
+      setAddresses(addresses);
+
+      const changeAddresses: Address[] = [];
+      for(let i = 0; i < 10; i++){
+        const derivationPath = `1/${i}`;
+        const changeChild = deriveChildPublicKey(xpub, derivationPath);
+        const changeAddress = getAddressFromChildPubkey(changeChild);
+        changeAddresses.push({
+          ...changeAddress,
+          derivationPath,
+          masterFingerprint
+        });
+      }
+
+      setChangeAddresses(changeAddresses);
+
     } catch (e) {
       console.log(e);
     }
@@ -49,7 +105,22 @@ export default function App() {
   useEffect(() => {
     const fetchTransactions = async () => {
       try {
-        throw new Error("Function not implemented yet");
+        const currentTransactionBatch: BlockstreamAPITransactionResponse[] = [];
+        for (let i = 0; i < 10; i++) {
+          const currentAddress = addresses[i];
+          const addressTransactions = await getTransactionsFromAddress(
+            currentAddress
+          );
+          currentTransactionBatch.push(...addressTransactions);
+        }
+
+        const serializedTxs = serializeTxs(
+          currentTransactionBatch,
+          addresses,
+          changeAddresses
+        );
+
+        setTransactions(serializedTxs);
       } catch (e) {
         console.log(e);
       }
@@ -62,7 +133,26 @@ export default function App() {
   useEffect(() => {
     const fetchUtxos = async () => {
       try {
-        throw new Error("Function not implemented yet");
+        let parsedUtxos = []
+        let allAddresses = [...addresses, ...changeAddresses];
+        for(let address of allAddresses){
+          let uTxos = await getUtxosFromAddress(address);
+          for(let utxo of uTxos){
+            parsedUtxos.push({
+              ...utxo,
+              address,
+              bip32Derivation: [
+                {
+                  pubkey: address.pubkey!,
+                  path: `m/84'/0'/0'/${address.derivationPath}`,
+                  masterFingerprint: masterFingerprint,
+                }
+              ]
+
+            })
+          }
+        }
+        setUtxos(parsedUtxos);
       } catch (e) {
         console.log(e);
       }
