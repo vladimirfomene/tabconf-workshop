@@ -44,7 +44,7 @@ export const deriveChildPublicKey = (
   return child;
 };
 
-export const getAddressFromChildPubkey = (
+export const getAddressP2WPKHFromChildPubkey = (
   child: BIP32Interface
 ): payments.Payment => {
   const address = payments.p2wpkh({ 
@@ -54,6 +54,28 @@ export const getAddressFromChildPubkey = (
     
   return address;
 };
+
+export const getAddressP2PKHFromChildPubKey = (
+  child: BIP32Interface
+): payments.Payment => {
+  const address = payments.p2pkh({
+    pubkey: child.publicKey,
+    network: networks.testnet,
+  });
+  return address;
+};
+
+export const getAddressP2WSHFromChildPubKey = (
+  child: BIP32Interface
+): payments.Payment => {
+  const address = payments.p2sh({
+    redeem: payments.p2wpkh({ pubkey: child.publicKey }),
+  });
+
+  return address;
+}
+
+
 
 export const createTransaction = async (
   utxos: DecoratedUtxo[],

@@ -16,7 +16,9 @@ import { Address, BlockstreamAPITransactionResponse, DecoratedTx, DecoratedUtxo 
 import { 
 getNewMnemonic, 
 getMasterPrivateKey, 
-getAddressFromChildPubkey, 
+getAddressP2WPKHFromChildPubkey,
+getAddressP2PKHFromChildPubKey,
+getAddressP2WSHFromChildPubKey,
 getXpubFromPrivateKey, 
 deriveChildPublicKey } 
 from "src/utils/bitcoinjs-lib";
@@ -41,25 +43,34 @@ export default function App() {
   // Mnemonic / Private Key / XPub
   useEffect(() => {
     const getSeed = async () => {
-      try {
-        let newMnemonic = "";
-        if (process.env.REACT_APP_MNEMONIC) {
-          newMnemonic = process.env.REACT_APP_MNEMONIC;
-        } else {
-          newMnemonic = getNewMnemonic();
+      let isWatchMode = !!process.env.WATCH_PUB_KEY;
+      let currentXpub = null;
+      if(isWatchMode){
+        currentXpub = process.env.WATCH_PUB_KEY;
+      }else{
+        try {
+          let newMnemonic = "";
+          if (process.env.REACT_APP_MNEMONIC) {
+            newMnemonic = process.env.REACT_APP_MNEMONIC;
+          } else {
+            newMnemonic = getNewMnemonic();
+          }
+          setMnemonic(newMnemonic);
+          const privateKey = await getMasterPrivateKey(newMnemonic);
+          setMasterFingerprint(privateKey.fingerprint);
+          const derivationPath = "m/84'/0'/0'"; // P2WPKH
+          currentXpub = getXpubFromPrivateKey(privateKey, derivationPath);
+  
+  
+          
+        } catch (e) {
+          console.log(e);
         }
-        setMnemonic(newMnemonic);
-        const privateKey = await getMasterPrivateKey(newMnemonic);
-        setMasterFingerprint(privateKey.fingerprint);
-        const derivationPath = "m/84'/0'/0'"; // P2WPKH
-        const currentXpub = getXpubFromPrivateKey(privateKey, derivationPath);
-        setXpub(currentXpub);
 
-
-        
-      } catch (e) {
-        console.log(e);
       }
+
+      setXpub(currentXpub);
+      
     };
     getSeed();
   }, []);
@@ -67,12 +78,14 @@ export default function App() {
   // Addresses
   useEffect(() => {
     try {
-      
+      const addressGenerationFunctions = [getAddressP2PKHFromChildPubKey, getAddressP2WPKHFromChildPubkey, getAddressP2WSHFromChildPubKey];
       const addresses: Address[] = [];
       for(let i = 0; i < 10; i++){
         const derivationPath = `0/${i}`;
         const child = deriveChildPublicKey(xpub, derivationPath);
-        const address = getAddressFromChildPubkey(child);
+        let index = Math.floor(addressGenerationFunctions.length * Math.random());
+        let fn = addressGenerationFunctions[index];
+        const address = fn(child);
         addresses.push({
           ...address,
           derivationPath,
@@ -86,7 +99,7 @@ export default function App() {
       for(let i = 0; i < 10; i++){
         const derivationPath = `1/${i}`;
         const changeChild = deriveChildPublicKey(xpub, derivationPath);
-        const changeAddress = getAddressFromChildPubkey(changeChild);
+        const changeAddress = getAddressP2WPKHFromChildPubkey(changeChild);
         changeAddresses.push({
           ...changeAddress,
           derivationPath,
